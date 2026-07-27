@@ -146,6 +146,42 @@ MinGW matters for one reason worth knowing: the DLL can throw an MSVC C++
 exception that a MinGW-built binary **cannot catch** (see `binding.h`, provider
 notes). The route this shim takes avoids that path entirely.
 
+### Building on Windows (MSYS2)
+
+There are no prebuilt binaries, by design — see *Why no releases* below. The
+build has no dependencies beyond a 32-bit MinGW gcc, so it is short:
+
+1. Install [MSYS2](https://www.msys2.org/), then from the **MSYS2 MINGW32**
+   shell (not the plain MSYS shell — the environment decides the target
+   architecture):
+
+   ```
+   pacman -S --needed mingw-w64-i686-gcc make git
+   ```
+
+2. Build and run the self-test:
+
+   ```
+   git clone https://github.com/OpenBLIP25/wave-shim
+   cd wave-shim
+   make CC=gcc          # in MINGW32, plain `gcc` is the i686 compiler
+   make test
+   ```
+
+`make test` needs Python 3; the reference-vector and off-air suites additionally
+need NumPy. Either MSYS2's Python (`pacman -S mingw-w64-i686-python-numpy`) or a
+python.org install works — the shim is a separate process, so the host
+interpreter's architecture does not have to match. If your Python is named
+`python` rather than `python3`, the Makefile detects that; override with
+`make test PYTHON=/c/Python312/python.exe` if it guesses wrong.
+
+No staging step is involved: on Windows the scripts launch `build\wave-shim.exe`
+directly.
+
+> Untested. This path is wired up and the Makefile no longer hard-codes anything
+> that would block it, but the 22/22 result above was measured on WSL. If you hit
+> something, an issue with the MSYS2 environment name and the error is welcome.
+
 ### Supplying the DLL and the test data
 
 Neither is in this repo, and neither is needed to build.
@@ -172,6 +208,29 @@ A mapped network drive is **not** mounted in WSL — network drives do not
 automount — so the copy goes through Windows. `cmd.exe` cannot handle the space
 in `"DVSI Vectors"`; that part uses PowerShell. Elsewhere, copy the trees
 yourself and set `DATA_DIR`.
+
+### Why no releases
+
+There are deliberately no prebuilt binaries attached to this repo.
+
+1. **A prebuilt exe would work for almost nobody.** `binding.h` is valid for
+   exactly one DLL build, and the shim verifies its SHA256 before binding. A
+   binary compiled against these offsets is useful only to someone holding that
+   same DLL; anyone else gets a refusal and has to re-derive the offsets and
+   rebuild regardless.
+2. **It would look like malware, because structurally it is the same shape.** An
+   unsigned PE that calls `LoadLibrary` and then dispatches into raw computed
+   addresses is what a loader or injector looks like to a scanner. Shipping one
+   invites Defender and SmartScreen warnings that users would have to be told to
+   click past — exactly the habit nobody should be teaching.
+3. **The safety claim has to be checkable.** The reason it is reasonable to run
+   this at all is that the shim refuses to bind to an unexpected DLL. That is
+   only a meaningful guarantee if you can read the source that enforces it. A
+   release artifact converts it into something you take on faith.
+4. **Building is two compiler invocations** with no dependencies, no configure
+   step and no code generation.
+
+Build from source, and read `binding.h` before you run it against a real DLL.
 
 ## Layout
 

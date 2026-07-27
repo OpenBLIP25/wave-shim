@@ -15,6 +15,10 @@ endif
 CFLAGS  ?= -O2 -Wall -Wextra -std=gnu99
 BUILD   := build
 
+# `python3` is the usual name, but a Windows/MSYS2 install commonly only has
+# `python`. Prefer python3 when it exists, else fall back.
+PYTHON  ?= $(shell command -v python3 >/dev/null 2>&1 && echo python3 || echo python)
+
 # Staging is a WSL-only step; elsewhere the binaries run from $(BUILD) as built.
 IS_WSL := $(shell grep -qi microsoft /proc/version 2>/dev/null && echo 1)
 
@@ -45,16 +49,16 @@ stage: all
 	 fi
 
 test: stage
-	python3 host/selftest.py
+	$(PYTHON) host/selftest.py
 
 # Real-DLL suites. Supply your own licensed W7K_UA_SDK.dll (from the WAVE 7000
 # PTT softclient); it is not redistributed here. Stage it alongside the exe:
 #   cp /path/to/W7K_UA_SDK.dll $(WINSTAGE)/
 realtest: stage
-	python3 host/realsmoke.py
-	python3 host/roundtrip.py
-	python3 host/decoderdelay.py
-	python3 host/delay_resolve.py
+	$(PYTHON) host/realsmoke.py
+	$(PYTHON) host/roundtrip.py
+	$(PYTHON) host/decoderdelay.py
+	$(PYTHON) host/delay_resolve.py
 
 # ---------------------------------------------------------------------------
 # Test data staging. Reference vectors live on a Windows network share, which is
@@ -83,23 +87,23 @@ stage-data:
 
 # Off-air validation. Needs `make stage-data` first.
 otatest: stage
-	python3 host/otacheck.py
+	$(PYTHON) host/otacheck.py
 
 # Reference-vector comparison: DLL encoder vs physical-chip bitstream, and DLL
 # decoder vs the chip/DVSI reference decode. Needs `make stage-data` first.
 # NOTE: pair each tree's TOP-LEVEL pcm with its own rNN bits. rNN/*.pcm is
 # encode-DECODE output, not source, and pairing it scores near zero.
 vectortest: stage
-	python3 host/vectorcheck.py
+	$(PYTHON) host/vectorcheck.py
 
 # Behavioural probes: FEC presence, multi-instance isolation.
 probes: stage
-	python3 host/fectest.py
-	python3 host/isolation.py
-	python3 host/resettest.py
+	$(PYTHON) host/fectest.py
+	$(PYTHON) host/isolation.py
+	$(PYTHON) host/resettest.py
 
 soak: stage
-	NFRAMES=20000 CYCLES=200 python3 host/soak.py
+	NFRAMES=20000 CYCLES=200 $(PYTHON) host/soak.py
 
 checkall: test realtest otatest vectortest probes soak
 
