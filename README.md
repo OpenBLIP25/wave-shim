@@ -91,51 +91,87 @@ Step 1 already earned its keep: it caught a wrong `out_bytes` in the binding
 table (the Tdma decoder returns 640 bytes per call, not 320) before that error
 could be confused with a codec problem.
 
-## Environment: no Wine needed
+## Building and running
 
-WSL2 runs PE binaries natively through `binfmt_misc` interop, so the shim runs
-as a real Windows process and the pipe crosses the WSL boundary unchanged. That
-is strictly better than Wine here — Wine reimplements the Win32 surface, and
-when a proprietary DLL misbehaves you do not want two unknowns. It also keeps
-MSVC available, which matters: the DLL can throw an MSVC C++ exception that a
-MinGW-built binary **cannot catch** (see `binding.h`, provider notes).
-
-The binaries must live on a Windows-visible path (`\\wsl.localhost\...` is not
-usable as a working directory for a Windows process), hence `make stage`.
+The shim is a PE32 (i386) console binary and the host is plain Python 3 talking
+to it over stdin/stdout. Nothing in the protocol or the shim is tied to one
+operating system; only the *launch* differs.
 
 ```
-make            # cross-compile PE32 with i686-w64-mingw32-gcc
-make stage      # copy exe + stub to /mnt/c/temp/wave-shim
-make stage-data # fetch captures + DVSI vectors from your Windows share
-make test       # step-1 self-test against stub.dll
+make            # build PE32 exe + stub.dll into build/
+make test       # step-1 self-test against stub.dll — no real DLL needed
 make checkall   # every suite: stub, real DLL, off-air, vectors, probes, soak
 ```
 
-The real DLL and the test data are not in this repo. Stage them with:
+`make test` runs on a clean checkout immediately after `make`: the stub supplies
+known answers, so the calling convention and marshalling are validated without
+the proprietary DLL present.
+
+### The three supported environments
+
+| | build | launch | staging |
+|---|---|---|---|
+| **native Windows** (MSYS2/MinGW) | `make CC=gcc` | direct | none |
+| **WSL** | `make` (cross) | direct, via `binfmt_misc` interop | `make stage` |
+| **Linux + Wine** | `make` (cross) | through `wine` | none |
+
+The host scripts detect which of these they are on and resolve the shim path,
+the DLL path and the test-data paths accordingly. Every default is overridable:
+
+| variable | meaning |
+|---|---|
+| `SHIM_CMD` | full command line to launch the shim (wins over `WINSTAGE`) |
+| `WINSTAGE` | directory holding `wave-shim.exe` / `stub.dll` |
+| `DLL_WIN`, `STUB_WIN` | DLL paths **as the shim will resolve them** |
+| `DATA_DIR` | root for test data; or set `CAPS`, `TV_*`, `CHIP`, `DEC` individually |
+| `PCM` | source PCM for the round-trip, soak and delay suites |
+
+**On WSL**, PE binaries execute natively through `binfmt_misc`, so the shim is a
+real Windows process and the pipe crosses the boundary unchanged. That is better
+than Wine here — Wine reimplements the Win32 surface, and when a proprietary DLL
+misbehaves you do not want two unknowns. Because the shim is a Windows process,
+any path you hand it must be a *Windows* path (`C:\...`, not `/mnt/c/...`); the
+host scripts convert automatically. `make stage` copies the binaries to
+`/mnt/c/temp/wave-shim` so they sit on a Windows-visible path.
+
+**On native Windows and under Wine** no staging happens — `make stage` reports
+that and the scripts launch straight out of `build/`. Set `WINSTAGE` explicitly
+if you want to stage anyway.
+
+> Wine is the one path **not** exercised here; it is wired up and needs no code
+> change, but it has not been run. WSL and the stub suite are what the 22/22
+> result above was measured on.
+
+MinGW matters for one reason worth knowing: the DLL can throw an MSVC C++
+exception that a MinGW-built binary **cannot catch** (see `binding.h`, provider
+notes). The route this shim takes avoids that path entirely.
+
+### Supplying the DLL and the test data
+
+Neither is in this repo, and neither is needed to build.
 
 ```
-cp /path/to/W7K_UA_SDK.dll /mnt/c/temp/wave-shim/
-make stage-data DATA_SHARE='\\your-share\path' DVSI_VECTORS='\\your-share\path\DVSI Vectors'
+cp /path/to/W7K_UA_SDK.dll <stage or build dir>/
 ```
 
 `W7K_UA_SDK.dll` ships with the WAVE 7000 PTT softclient and is **not
-redistributed here** — supply your own licensed copy.
+redistributed here** — supply your own licensed copy. The shim checks its SHA256
+and refuses to bind to anything but the one build `binding.h` describes.
 
-`stage-data` copies reference vectors from a Windows share into `C:\temp`. Point
-`DATA_SHARE` and `DVSI_VECTORS` at wherever yours live. A mapped network drive is
-**not** mounted in WSL — network drives do not automount — so the copy goes
-through Windows. `cmd.exe` cannot handle the space in `"DVSI Vectors"`; that part
-uses PowerShell.
+The fixtures the suites default to (`vectors/clean.pcm`, `vectors/voiced.pcm`,
+`vectors/chip_io/`, `vectors/ambe-samples/`) are likewise absent; point the
+variables above at your own copies.
 
-The PCM/bitstream fixtures the `host/` scripts default to (`vectors/clean.pcm`,
-`vectors/voiced.pcm`, `vectors/chip_io/`) are likewise not in this repo. Every one
-is overridable by environment variable — see the top of each script.
-
-Wine remains a drop-in fallback and needs no code change:
+`make stage-data` automates that copy **on WSL only**, from a Windows share:
 
 ```
-SHIM_CMD='wine /mnt/c/temp/wave-shim/wave-shim.exe' python3 host/selftest.py
+make stage-data DATA_SHARE='\\your-share\path' DVSI_VECTORS='\\your-share\path\DVSI Vectors'
 ```
+
+A mapped network drive is **not** mounted in WSL — network drives do not
+automount — so the copy goes through Windows. `cmd.exe` cannot handle the space
+in `"DVSI Vectors"`; that part uses PowerShell. Elsewhere, copy the trees
+yourself and set `DATA_DIR`.
 
 ## Layout
 

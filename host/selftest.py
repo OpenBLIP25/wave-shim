@@ -3,15 +3,19 @@
 calling convention, the this-pointer, construction and the frame marshalling
 all behave, against a target whose correct answers are known.
 
-Runs the shim as a native Windows process through WSL interop (no Wine).
-Override with SHIM_CMD if you want to run it some other way, e.g.
-    SHIM_CMD='wine /mnt/c/temp/wave-shim/wave-shim.exe' python3 host/selftest.py
+Needs no real DLL — the stub supplies the known answers, so this suite runs on
+a clean checkout right after `make`.
+
+The launch command is resolved per platform (native Windows and WSL run the PE
+directly; other Linux goes through Wine). Override with SHIM_CMD to run it some
+other way, e.g.
+    SHIM_CMD='wine /path/to/wave-shim.exe' python3 host/selftest.py
 """
 import os, struct, subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from waveshim import shim_argv, default_stub
 
-WINSTAGE = os.environ.get("WINSTAGE", "/mnt/c/temp/wave-shim")
-SHIM = os.environ.get("SHIM_CMD", f"{WINSTAGE}/wave-shim.exe")
-DLL_WIN = os.environ.get("STUB_WIN", r"C:\temp\wave-shim\stub.dll")
+DLL_WIN = default_stub()
 
 OP_HELLO, OP_OPEN, OP_CLOSE, OP_RESET, OP_PROCESS = 1, 2, 3, 4, 5
 ST_OK = 0
@@ -21,7 +25,7 @@ RATE_TDMA, RATE_FDMA = 0, 1
 
 class Shim:
     def __init__(self, dll):
-        cmd = SHIM.split() + [dll]
+        cmd = shim_argv() + [dll]
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE)
 
@@ -71,7 +75,7 @@ def expected_fingerprint(pcm, frame_index, fbytes):
 
 
 def main():
-    print(f"shim : {SHIM}")
+    print(f"shim : {' '.join(shim_argv())}")
     print(f"dll  : {DLL_WIN}")
     s = Shim(DLL_WIN)
 

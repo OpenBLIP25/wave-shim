@@ -14,9 +14,9 @@ the report for what is and isn't established about that.
 """
 import os, sys, glob
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from waveshim import WaveShim, ENCODER, DECODER, TDMA_AMBE2, FDMA_IMBE
+from waveshim import default_data, WaveShim, ENCODER, DECODER, TDMA_AMBE2, FDMA_IMBE
 
-CAPS = os.environ.get("CAPS", "/mnt/c/temp/ambe-samples")
+CAPS = os.environ.get("CAPS") or default_data("ambe-samples")
 PCM = os.environ.get("PCM", "vectors/clean.pcm")
 N = int(os.environ.get("N", "60"))
 STREAMS = int(os.environ.get("STREAMS", "6"))

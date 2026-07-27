@@ -6,9 +6,10 @@ crash names the last thing that worked.
 """
 import os, struct, subprocess, sys
 
-WINSTAGE = os.environ.get("WINSTAGE", "/mnt/c/temp/wave-shim")
-SHIM = os.environ.get("SHIM_CMD", f"{WINSTAGE}/wave-shim.exe")
-DLL_WIN = os.environ.get("DLL_WIN", r"C:\temp\wave-shim\W7K_UA_SDK.dll")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from waveshim import shim_argv, default_dll
+
+DLL_WIN = default_dll()
 
 OP_HELLO, OP_OPEN, OP_CLOSE, OP_RESET, OP_PROCESS = 1, 2, 3, 4, 5
 ST_OK = 0
@@ -18,7 +19,7 @@ NFRAMES = int(os.environ.get("NFRAMES", "10"))
 
 
 def main():
-    p = subprocess.Popen(SHIM.split() + [DLL_WIN],
+    p = subprocess.Popen(shim_argv() + [DLL_WIN],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
     def call(op, payload=b""):

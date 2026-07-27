@@ -12,7 +12,7 @@ Usage: NFRAMES=20000 CYCLES=200 python3 host/soak.py
 """
 import os, struct, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from waveshim import WaveShim, ShimError, ShimDied, ENCODER, DECODER, TDMA_AMBE2, FDMA_IMBE
+from waveshim import is_wsl, WaveShim, ShimError, ShimDied, ENCODER, DECODER, TDMA_AMBE2, FDMA_IMBE
 
 PCM = os.environ.get("PCM", "vectors/clean.pcm")
 NFRAMES = int(os.environ.get("NFRAMES", "20000"))
@@ -30,11 +30,21 @@ def rss_kb(_pid=None):
     NOT by PID: under WSL interop the Popen pid is the Linux-side interop stub,
     not the Windows process, so a PID filter silently matches nothing. Filter by
     image name instead (one shim per soak run).
+
+    Only Windows and WSL can answer this. Under Wine there is no tasklist, so
+    this returns None and the memory-growth report is simply skipped — the
+    throughput and handle-churn checks still run and still decide the result.
     """
+    if os.name == "nt":
+        tasklist = "tasklist.exe"                       # on PATH
+    elif is_wsl():
+        tasklist = "/mnt/c/Windows/System32/tasklist.exe"
+    else:
+        return None                                     # Wine: not available
     try:
         out = subprocess.run(
-            ["/mnt/c/Windows/System32/tasklist.exe", "/FI",
-             "IMAGENAME eq wave-shim.exe", "/FO", "CSV", "/NH"],
+            [tasklist, "/FI", "IMAGENAME eq wave-shim.exe",
+             "/FO", "CSV", "/NH"],
             capture_output=True, text=True, timeout=20).stdout.strip()
         if not out or "No tasks" in out:
             return None

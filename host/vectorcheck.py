@@ -22,10 +22,15 @@ Two unknowns have to be swept, not assumed:
 import os, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from waveshim import WaveShim, ShimError, ShimDied, ENCODER, TDMA_AMBE2
+from waveshim import default_data, WaveShim, ShimError, ShimDied, ENCODER, TDMA_AMBE2
 
-CHIP = os.environ.get(
-    "CHIP", "vectors/chip_io/encode")
+CHIP = os.environ.get("CHIP", "vectors/chip_io/encode")
+
+# DVSI reference-vector trees. Staged per platform; override individually.
+TV_STD_SRC = os.environ.get("TV_STD_SRC") or default_data("tv-std-src")
+TV_STD_R34 = os.environ.get("TV_STD_R34") or default_data("tv-std-r34")
+TV_RC_SRC  = os.environ.get("TV_RC_SRC")  or default_data("tv-rc-src")
+TV_RC_R34  = os.environ.get("TV_RC_R34")  or default_data("tv-rc-r34")
 
 R34_BIT_ORDER = [
     0, 18, 36, 1, 19, 37, 2, 20, 38, 3, 21, 39, 4, 22, 40, 5, 23, 41, 6, 24, 42,
@@ -223,10 +228,10 @@ def main():
         print(f"      best: {best[2]} shift {best[3]} -> "
               f"{best[0]:.1f}% frame-exact, {best[1]:.1f}% bit-agreement\n")
 
-    ref_encode_section(s, "/mnt/c/temp/tv-std-src", "/mnt/c/temp/tv-std-r34",
+    ref_encode_section(s, TV_STD_SRC, TV_STD_R34,
                        "DVSI reference, STD codec config (tv-std)",
                        ["clean", "dam", "noisy"])
-    ref_encode_section(s, "/mnt/c/temp/tv-rc-src", "/mnt/c/temp/tv-rc-r34",
+    ref_encode_section(s, TV_RC_SRC, TV_RC_R34,
                        "DVSI reference, RC codec config (tv-rc)",
                        ["clean", "dam", "alert"])
     decode_section(s)

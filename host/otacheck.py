@@ -19,9 +19,9 @@ matching seq would mean the shim is feeding the bytes in the wrong reading.
 import glob, os, struct, sys, wave
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from waveshim import WaveShim, ShimError, ShimDied, DECODER, TDMA_AMBE2
+from waveshim import default_data, WaveShim, ShimError, ShimDied, DECODER, TDMA_AMBE2
 
-CAPS = os.environ.get("CAPS", "/mnt/c/temp/ambe-samples")
+CAPS = os.environ.get("CAPS") or default_data("ambe-samples")
 LIMIT = int(os.environ.get("LIMIT", "0"))     # 0 = all captures
 
 

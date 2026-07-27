@@ -19,9 +19,9 @@ reused one would carry contamination from the previous trial.
 import os, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from waveshim import WaveShim, DECODER, TDMA_AMBE2
+from waveshim import default_data, WaveShim, DECODER, TDMA_AMBE2
 
-CAPS = os.environ.get("CAPS", "/mnt/c/temp/ambe-samples")
+CAPS = os.environ.get("CAPS") or default_data("ambe-samples")
 R34_BIT_ORDER = [
     0, 18, 36, 1, 19, 37, 2, 20, 38, 3, 21, 39, 4, 22, 40, 5, 23, 41, 6, 24, 42,
     7, 25, 43, 8, 26, 44, 9, 27, 45, 10, 28, 46, 11, 29, 47, 12, 30, 48, 13, 31,

@@ -1,6 +1,22 @@
+# Builds a PE32 (i386) exe + DLL. Three host environments are supported:
+#
+#   Linux (cross)   i686-w64-mingw32-gcc; run the result under Wine, or via
+#                   WSL interop if this is WSL
+#   WSL             as above, but PE binaries execute natively through
+#                   binfmt_misc — no Wine. They must sit on a Windows-visible
+#                   path, so `make stage` copies them to $(WINSTAGE).
+#   native Windows  MSYS2/MinGW; `make CC=gcc` (a 32-bit MinGW gcc). No staging.
+#
+# `?=` will not work for CC: make predefines it, so only replace it when the
+# value is still make's own default and leave any user/environment value alone.
+ifeq ($(origin CC),default)
 CC      := i686-w64-mingw32-gcc
-CFLAGS  := -O2 -Wall -Wextra -std=gnu99
+endif
+CFLAGS  ?= -O2 -Wall -Wextra -std=gnu99
 BUILD   := build
+
+# Staging is a WSL-only step; elsewhere the binaries run from $(BUILD) as built.
+IS_WSL := $(shell grep -qi microsoft /proc/version 2>/dev/null && echo 1)
 
 all: $(BUILD)/wave-shim.exe $(BUILD)/stub.dll
 
@@ -13,13 +29,20 @@ $(BUILD)/stub.dll: stub/stub.c | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
-# Stage into a Windows-visible directory and run natively through WSL interop.
-# No Wine involved: WSL2 executes PE binaries directly.
-WINSTAGE ?= /mnt/c/temp/wave-shim
+# Under WSL the binaries must live on a Windows-visible path — \\wsl.localhost\...
+# is not usable as a Windows process's working directory. Everywhere else this
+# is a no-op and the host scripts launch straight out of $(BUILD).
+# Set WINSTAGE explicitly to force staging on any platform.
+WINSTAGE ?= $(if $(IS_WSL),/mnt/c/temp/wave-shim,)
 
 stage: all
-	mkdir -p $(WINSTAGE)
-	cp $(BUILD)/wave-shim.exe $(BUILD)/stub.dll $(WINSTAGE)/
+	@if [ -n "$(WINSTAGE)" ]; then \
+	   mkdir -p "$(WINSTAGE)" && \
+	   cp $(BUILD)/wave-shim.exe $(BUILD)/stub.dll "$(WINSTAGE)/" && \
+	   echo "staged -> $(WINSTAGE)"; \
+	 else \
+	   echo "no staging needed; running from $(BUILD)/"; \
+	 fi
 
 test: stage
 	python3 host/selftest.py
@@ -51,6 +74,7 @@ AMBE_SAMPLES ?= $(DATA_SHARE)\ambe-samples
 DVSI          = $(DVSI_VECTORS)
 
 stage-data:
+	@test -n "$(IS_WSL)"       || { echo "stage-data is WSL-only; elsewhere copy the vectors yourself and point CAPS/TV_*/CHIP/DEC at them"; exit 1; }
 	@test -n "$(DATA_SHARE)"   || { echo "set DATA_SHARE=<windows path containing ambe-samples>"; exit 1; }
 	@test -n "$(DVSI_VECTORS)" || { echo "set DVSI_VECTORS=<windows path to the DVSI vector trees>"; exit 1; }
 	/mnt/c/Windows/System32/cmd.exe /c 'robocopy $(AMBE_SAMPLES) C:\temp\ambe-samples /E /NFL /NDL /NJH /NP' || true
