@@ -1,0 +1,13 @@
+# Build output
+build/
+
+# Reference vectors / captures — not redistributable, staged locally
+vectors/
+
+# The proprietary SDK DLL is never committed
+*.dll
+!stub/*.c
+
+# Python
+__pycache__/
+*.py[cod]
