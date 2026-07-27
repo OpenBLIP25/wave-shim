@@ -198,6 +198,26 @@ The fixtures the suites default to (`vectors/clean.pcm`, `vectors/voiced.pcm`,
 `vectors/chip_io/`, `vectors/ambe-samples/`) are likewise absent; point the
 variables above at your own copies.
 
+Rather than setting those by hand every time, drop a **`local.mk`** beside the
+Makefile — it is `-include`d if present and is gitignored, so local paths never
+reach the repo:
+
+```make
+DVSI_ROOT  := /path/to/your/vectors
+PCM_CLEAN  := $(DVSI_ROOT)/clean.pcm
+PCM_VOICED := $(DVSI_ROOT)/voiced.pcm
+
+export CHIP := $(DVSI_ROOT)/chip_io/encode
+export DEC  := $(DVSI_ROOT)/chip_io/decode
+export CONV := /path/to/r33_to_info_r34
+
+# the suites want different source audio
+realtest:    export PCM := $(PCM_VOICED)
+soak probes: export PCM := $(PCM_CLEAN)
+```
+
+With that in place `make checkall` runs with no environment variables set.
+
 `make stage-data` automates that copy **on WSL only**, from a Windows share:
 
 ```

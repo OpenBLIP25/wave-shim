@@ -11,3 +11,6 @@ vectors/
 # Python
 __pycache__/
 *.py[cod]
+
+# Local, uncommitted fixture paths
+local.mk

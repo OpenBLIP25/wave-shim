@@ -22,6 +22,10 @@ PYTHON  ?= $(shell command -v python3 >/dev/null 2>&1 && echo python3 || echo py
 # Staging is a WSL-only step; elsewhere the binaries run from $(BUILD) as built.
 IS_WSL := $(shell grep -qi microsoft /proc/version 2>/dev/null && echo 1)
 
+# Optional, never committed: your own fixture paths, so `make checkall` runs
+# without a wall of environment variables. See README, "Supplying the DLL".
+-include local.mk
+
 all: $(BUILD)/wave-shim.exe $(BUILD)/stub.dll
 
 $(BUILD)/wave-shim.exe: shim.c binding.h protocol.h | $(BUILD)
